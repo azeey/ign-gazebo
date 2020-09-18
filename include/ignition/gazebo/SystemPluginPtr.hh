@@ -19,18 +19,23 @@
 
 #include <ignition/plugin/SpecializedPluginPtr.hh>
 #include <ignition/gazebo/System.hh>
+#include <variant>
 
 namespace ignition
 {
   namespace gazebo
   {
-    using SystemPluginPtr = ignition::plugin::SpecializedPluginPtr<
+    using SystemPluginFromFilePtr = ignition::plugin::SpecializedPluginPtr<
       System,
       ISystemConfigure,
       ISystemPreUpdate,
       ISystemUpdate,
       ISystemPostUpdate
     >;
+
+    using SystemPluginFromMemoryPtr = std::shared_ptr<System>;
+
+    using SystemPluginPtr = std::variant<SystemPluginFromFilePtr, SystemPluginFromMemoryPtr>;
   }
 }
 

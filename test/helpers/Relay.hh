@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 
 #include <ignition/gazebo/SystemLoader.hh>
+#include <ignition/gazebo/SystemPluginPtr.hh>
 #include <ignition/gazebo/test_config.hh>
 
 #include "../plugins/MockSystem.hh"
@@ -58,10 +59,9 @@ class Relay
         "ignition::gazebo::MockSystem", nullptr);
 
     EXPECT_TRUE(plugin.has_value());
-    this->systemPtr = plugin.value();
-
-    this->mockSystem = static_cast<MockSystem *>(
-        systemPtr->QueryInterface<System>());
+    this->systemPtr = std::get<SystemPluginFromFilePtr>(plugin.value());
+    this->mockSystem =
+        static_cast<MockSystem *>(this->systemPtr->QueryInterface<System>());
     EXPECT_NE(nullptr, this->mockSystem);
   }
 
@@ -90,7 +90,7 @@ class Relay
   }
 
   /// \brief Pointer to underlying syste,
-  public: SystemPluginPtr systemPtr;
+  public: SystemPluginFromFilePtr systemPtr;
 
   /// \brief Pointer to underlying mock interface
   public: MockSystem *mockSystem;

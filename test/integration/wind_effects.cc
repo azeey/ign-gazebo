@@ -33,6 +33,7 @@
 #include "ignition/gazebo/components/WindMode.hh"
 
 #include "plugins/MockSystem.hh"
+#include "helpers/Relay.hh"
 
 using namespace ignition;
 using namespace gazebo;
@@ -75,19 +76,9 @@ class LinkComponentRecorder
   public: LinkComponentRecorder(std::string _linkName, bool _createComp = false)
       : linkName(std::move(_linkName))
   {
-    auto plugin = loader.LoadPlugin("libMockSystem.so",
-                                    "ignition::gazebo::MockSystem", nullptr);
-    EXPECT_TRUE(plugin.has_value());
-
-    this->systemPtr = plugin.value();
-
-    this->mockSystem =
-        dynamic_cast<MockSystem *>(systemPtr->QueryInterface<System>());
-    EXPECT_NE(nullptr, this->mockSystem);
-
     if (_createComp)
     {
-      this->mockSystem->preUpdateCallback =
+      this->relay.OnPreUpdate(
         [this](const gazebo::UpdateInfo &, gazebo::EntityComponentManager &_ecm)
         {
           auto linkEntity = _ecm.EntityByComponents(
@@ -100,10 +91,10 @@ class LinkComponentRecorder
               _ecm.CreateComponent(linkEntity, ComponentType());
             }
           }
-        };
+        });
     }
 
-    this->mockSystem->postUpdateCallback =
+    this->relay.OnPostUpdate(
         [this](const gazebo::UpdateInfo &,
               const gazebo::EntityComponentManager &_ecm)
         {
@@ -118,17 +109,15 @@ class LinkComponentRecorder
               this->values.push_back(*value);
             }
           }
-        };
+        });
   }
 
-  public: SystemPluginPtr systemPtr;
+  public: test::Relay relay;
 
   /// \brief The recorded component values
   public: std::vector<ComponentType> values;
   public: std::string linkName;
 
-  protected: SystemLoader loader;
-  protected: MockSystem *mockSystem;
 };
 
 /// \brief Publisher that blocks until two messages have been received
@@ -196,7 +185,7 @@ TEST_F(WindEffectsTest, WindEnabledInModel)
 
   LinkComponentRecorder<components::WindMode> linkWindMode("box_test1");
 
-  this->server->AddSystem(linkWindMode.systemPtr);
+  this->server->AddSystem(linkWindMode.relay.systemPtr);
   EXPECT_TRUE(linkWindMode.values.empty());
 
   this->server->Run(true, 10, false);
@@ -213,7 +202,7 @@ TEST_F(WindEffectsTest, WindEnabledInLink)
 
   LinkComponentRecorder<components::WindMode> linkWindMode("box_test2");
 
-  this->server->AddSystem(linkWindMode.systemPtr);
+  this->server->AddSystem(linkWindMode.relay.systemPtr);
   EXPECT_TRUE(linkWindMode.values.empty());
 
   this->server->Run(true, 10, false);
@@ -233,7 +222,7 @@ TEST_F(WindEffectsTest , WindForce)
   using namespace std::chrono_literals;
   this->server->SetUpdatePeriod(0ns);
 
-  this->server->AddSystem(linkAccelerations.systemPtr);
+  this->server->AddSystem(linkAccelerations.relay.systemPtr);
 
   // Computing the exact motion of the link, without reimplementing the wind
   // effects system here, is difficult. So, here, we simply check that the
@@ -310,7 +299,7 @@ TEST_F(WindEffectsTest , TopicsAndServices)
   // Since wind is now disabled, the velocity should remain constant
   LinkComponentRecorder<components::WorldLinearVelocity> linkVelocities(
       "box_test1", true);
-  this->server->AddSystem(linkVelocities.systemPtr);
+  this->server->AddSystem(linkVelocities.relay.systemPtr);
   this->server->SetUpdatePeriod(0ns);
 
   const std::size_t nIters{1000};

@@ -42,6 +42,10 @@
 #include "ignition/gazebo/SdfEntityCreator.hh"
 #include "ignition/gazebo/components/Geometry.hh"
 #include "ignition/gazebo/components/Material.hh"
+#include "ignition/gazebo/components/Collision.hh"
+#include "ignition/gazebo/components/CastShadows.hh"
+#include "ignition/gazebo/components/Transparency.hh"
+#include "ignition/gazebo/components/Visual.hh"
 #include "ignition/gazebo/components/Pose.hh"
 
 using namespace ignition;
@@ -162,7 +166,43 @@ void LogPlaybackPrivate::Parse(const msgs::Pose_V &_msg, bool &_clear)
 void LogPlaybackPrivate::Parse(EntityComponentManager &_ecm,
     const msgs::SerializedStateMap &_msg)
 {
-  _ecm.SetState(_msg);
+  msgs::SerializedStateMap newMsg = _msg;
+  // DEBUGGING: Display collisions instead of visuals
+  for (auto &iter: *newMsg.mutable_entities())
+  {
+    bool foundCollision = false;
+    for (auto &compIter : *iter.second.mutable_components())
+    {
+      auto &compMsg = compIter.second;
+      if (compMsg.type() == components::Collision::typeId)
+      {
+        compMsg.set_type(components::Visual::typeId);
+        foundCollision = true;
+      }
+      else if (compMsg.type() == components::Visual::typeId)
+      {
+        compMsg.clear_component();
+        compMsg.clear_type();
+      }
+    }
+    if (foundCollision)
+    {
+      {
+        auto &comps = *iter.second.mutable_components();
+        comps[components::CastShadows::typeId].set_type(components::CastShadows::typeId);
+        comps[components::CastShadows::typeId].set_component("1");
+      }
+      {
+        auto &comps = *iter.second.mutable_components();
+        comps[components::Transparency::typeId];
+        comps[components::Transparency::typeId].set_type(components::Transparency::typeId);
+        comps[components::Transparency::typeId].set_component("0");
+
+      }
+    }
+  }
+
+  _ecm.SetState(newMsg);
 }
 
 //////////////////////////////////////////////////

@@ -40,6 +40,7 @@
 #include "ignition/gazebo/components/World.hh"
 
 #include "plugins/MockSystem.hh"
+#include "helpers/Relay.hh"
 
 using namespace ignition;
 using namespace std::chrono_literals;
@@ -55,19 +56,8 @@ class SensorsFixture : public ::testing::Test
     setenv("IGN_GAZEBO_SYSTEM_PLUGIN_PATH",
       (std::string(PROJECT_BINARY_PATH) + "/lib").c_str(), 1);
 
-    auto plugin = sm.LoadPlugin("libMockSystem.so",
-                                "ignition::gazebo::MockSystem",
-                                nullptr);
-    EXPECT_TRUE(plugin.has_value());
-    this->systemPtr = plugin.value();
-    this->mockSystem = static_cast<gazebo::MockSystem *>(
-        systemPtr->QueryInterface<gazebo::System>());
   }
 
-  public: ignition::gazebo::SystemPluginPtr systemPtr;
-  public: gazebo::MockSystem *mockSystem;
-
-  private: gazebo::SystemLoader sm;
 };
 
 //////////////////////////////////////////////////
@@ -120,13 +110,15 @@ TEST_F(SensorsFixture, IGN_UTILS_TEST_DISABLED_ON_MAC(HandleRemovedEntities))
 
   // A pointer to the ecm. This will be valid once we run the mock system
   gazebo::EntityComponentManager *ecm = nullptr;
-  this->mockSystem->preUpdateCallback =
+
+  gazebo::test::Relay relay;
+  relay.OnPreUpdate(
     [&ecm](const gazebo::UpdateInfo &, gazebo::EntityComponentManager &_ecm)
     {
       ecm = &_ecm;
-    };
+    });
 
-  server.AddSystem(this->systemPtr);
+  server.AddSystem(relay.systemPtr);
   server.Run(true, 10, false);
   ASSERT_NE(nullptr, ecm);
 

@@ -742,7 +742,17 @@ void SimulationRunner::LoadPlugins(const Entity _entity,
       }
       if (system)
       {
-        auto systemConfig = system.value()->QueryInterface<ISystemConfigure>();
+        ISystemConfigure *systemConfig = nullptr;
+        if (auto *fromFile = std::get_if<SystemPluginFromFilePtr>(&system.value()))
+        {
+          systemConfig = (*fromFile)->QueryInterface<ISystemConfigure>();
+        }
+        else if (auto *fromMemory =
+                     std::get_if<SystemPluginFromMemoryPtr>(&system.value()))
+        {
+          systemConfig = dynamic_cast<ISystemConfigure *>(fromMemory->get());
+        }
+
         if (systemConfig != nullptr)
         {
           systemConfig->Configure(_entity, pluginElem,
@@ -816,7 +826,16 @@ void SimulationRunner::LoadPlugins(const Entity _entity,
 
     if (system)
     {
-      auto systemConfig = system.value()->QueryInterface<ISystemConfigure>();
+      ISystemConfigure *systemConfig = nullptr;
+      if (auto *fromFile = std::get_if<SystemPluginFromFilePtr>(&system.value()))
+      {
+        systemConfig = (*fromFile)->QueryInterface<ISystemConfigure>();
+      }
+      else if (auto *fromMemory =
+          std::get_if<SystemPluginFromMemoryPtr>(&system.value()))
+      {
+        systemConfig = dynamic_cast<ISystemConfigure *>(fromMemory->get());
+      }
       if (systemConfig != nullptr)
       {
         systemConfig->Configure(_entity, plugin.Sdf(), this->entityCompMgr,

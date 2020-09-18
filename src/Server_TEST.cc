@@ -599,12 +599,9 @@ TEST_P(ServerFixture, AddSystemWhileRunning)
   server.Run(false, 0, false);
   EXPECT_EQ(3u, *server.SystemCount());
 
-  gazebo::SystemLoader systemLoader;
-  auto mockSystemPlugin = systemLoader.LoadPlugin("libMockSystem.so",
-      "ignition::gazebo::MockSystem", nullptr);
-  ASSERT_TRUE(mockSystemPlugin.has_value());
+  gazebo::test::Relay mockSystemPlugin;
 
-  EXPECT_FALSE(*server.AddSystem(mockSystemPlugin.value()));
+  EXPECT_FALSE(*server.AddSystem(mockSystemPlugin.systemPtr));
   EXPECT_EQ(3u, *server.SystemCount());
 
   // Stop the server
@@ -623,16 +620,13 @@ TEST_P(ServerFixture, AddSystemAfterLoad)
   EXPECT_FALSE(server.Running());
   EXPECT_FALSE(*server.Running(0));
 
-  gazebo::SystemLoader systemLoader;
-  auto mockSystemPlugin = systemLoader.LoadPlugin("libMockSystem.so",
-      "ignition::gazebo::MockSystem", nullptr);
-  ASSERT_TRUE(mockSystemPlugin.has_value());
+  gazebo::test::Relay mockSystemPlugin;
 
   EXPECT_EQ(3u, *server.SystemCount());
-  EXPECT_TRUE(*server.AddSystem(mockSystemPlugin.value()));
+  EXPECT_TRUE(*server.AddSystem(mockSystemPlugin.systemPtr));
   EXPECT_EQ(4u, *server.SystemCount());
 
-  auto system = mockSystemPlugin.value()->QueryInterface<gazebo::System>();
+  auto system = mockSystemPlugin.systemPtr->QueryInterface<gazebo::System>();
   EXPECT_NE(system, nullptr);
   auto mockSystem = dynamic_cast<gazebo::MockSystem*>(system);
   EXPECT_NE(mockSystem, nullptr);

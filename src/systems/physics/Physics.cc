@@ -527,7 +527,17 @@ void Physics::Update(const UpdateInfo &_info, EntityComponentManager &_ecm)
     if (!_info.paused)
     {
       this->dataPtr->Step(_info.dt);
+      // auto allContacts = this->dataPtr->entityWorldMap.begin()
+      //                        ->second->GetContactsFromLastStep();
+      // int count = 0;
+      // auto total = allContacts.size();
+      // for (const auto &c : allContacts)
+      // {
+      //   const auto &cp = c.Get<PhysicsPrivate::WorldType::ContactPoint>();
+      //   std::cout << ++count << "/" << total << " " << cp.point.transpose() << std::endl;
+      // }
     }
+
     this->dataPtr->UpdateSim(_ecm);
 
     // Entities scheduled to be removed should be removed from physics after the

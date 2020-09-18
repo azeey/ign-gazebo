@@ -93,12 +93,26 @@ namespace ignition
     {
       /// \brief Constructor
       public: explicit SystemInternal(SystemPluginPtr _systemPlugin)
-              : systemPlugin(std::move(_systemPlugin)),
-                system(systemPlugin->QueryInterface<System>()),
-                preupdate(systemPlugin->QueryInterface<ISystemPreUpdate>()),
-                update(systemPlugin->QueryInterface<ISystemUpdate>()),
-                postupdate(systemPlugin->QueryInterface<ISystemPostUpdate>())
+          : systemPlugin(std::move(_systemPlugin))
       {
+        if (auto *fromFile = std::get_if<SystemPluginFromFilePtr>(&systemPlugin))
+        {
+          this->system = (*fromFile)->QueryInterface<System>();
+          this->configure = (*fromFile)->QueryInterface<ISystemConfigure>();
+          this->preupdate = (*fromFile)->QueryInterface<ISystemPreUpdate>();
+          this->update = (*fromFile)->QueryInterface<ISystemUpdate>();
+          this->postupdate = (*fromFile)->QueryInterface<ISystemPostUpdate>();
+        }
+        else if (auto *fromMemory =
+                     std::get_if<SystemPluginFromMemoryPtr>(&systemPlugin))
+        {
+          this->system = fromMemory->get();
+          this->configure = dynamic_cast<ISystemConfigure *>(fromMemory->get());
+          this->preupdate = dynamic_cast<ISystemPreUpdate *>(fromMemory->get());
+          this->update = (dynamic_cast<ISystemUpdate *>(fromMemory->get()));
+          this->postupdate =
+              (dynamic_cast<ISystemPostUpdate *>(fromMemory->get()));
+        }
       }
 
       /// \brief Plugin object. This manages the lifecycle of the instantiated
@@ -119,6 +133,10 @@ namespace ignition
       /// \brief Access this system via the ISystemPostUpdate interface
       /// Will be nullptr if the System doesn't implement this interface.
       public: ISystemPostUpdate *postupdate = nullptr;
+
+      /// \brief Access this system via the ISystemConfigure interface
+      /// Will be nullptr if the System doesn't implement this interface.
+      public: ISystemConfigure *configure = nullptr;
 
       /// \brief Vector of queries and callbacks
       public: std::vector<EntityQueryCallback> updates;
