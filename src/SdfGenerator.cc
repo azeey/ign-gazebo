@@ -21,6 +21,7 @@
 #include <ignition/common/URI.hh>
 
 #include "ignition/gazebo/Util.hh"
+#include "ignition/gazebo/components/Collision.hh"
 #include "ignition/gazebo/components/Light.hh"
 #include "ignition/gazebo/components/Model.hh"
 #include "ignition/gazebo/components/Name.hh"
@@ -263,11 +264,11 @@ namespace sdf_generator
   {
     const auto *worldSdf = _ecm.Component<components::WorldSdf>(_entity);
 
-    if (nullptr == worldSdf)
-      return false;
-
-    if (!copySdf(_ecm.Component<components::WorldSdf>(_entity), _elem))
-      return false;
+    if (nullptr != worldSdf)
+    {
+      if (!copySdf(_ecm.Component<components::WorldSdf>(_entity), _elem))
+        return false;
+    }
 
     // First remove child entities of <world> whose names can be changed during
     // simulation (eg. models). Then we add them back from the data in the
@@ -287,18 +288,33 @@ namespace sdf_generator
       _elem->RemoveChild(e);
     }
 
-    auto worldDir = common::parentPath(worldSdf->Data().Element()->FilePath());
+    // auto worldDir = common::parentPath(worldSdf->Data().Element()->FilePath());
 
-    _ecm.Each<components::Model, components::ModelSdf>(
-        [&](const Entity &_modelEntity, const components::Model *,
-            const components::ModelSdf *_modelSdf)
-        {
-          auto modelDir =
-              common::parentPath(_modelSdf->Data().Element()->FilePath());
+    _ecm.Each<components::Model>(
+        [&](const Entity &_modelEntity, const components::Model *) {
           const std::string modelName =
               scopedName(_modelEntity, _ecm, "::", false);
 
-          bool modelFromInclude = isModelFromInclude(modelDir, worldDir);
+          auto filePath =
+              _ecm.Component<components::SourceFilePath>(_modelEntity);
+          std::string modelDir="";
+          if (nullptr != filePath)
+          {
+            modelDir = common::parentPath(filePath->Data());
+          }
+          else
+          {
+            // TODO (addisu) Figure out a way to get the path of the SDF that
+            // was used to create this model entity. The fact that it's
+            // SourceFilePath is empty means it was probably spawned from an SDF
+            // string, so might have to hard code things here for Breadcrumbs
+            // and other dynamically spawned objects.
+            ignerr << "filePath for model " << modelName << " not found\n";
+            return true;
+          }
+
+          // bool modelFromInclude = isModelFromInclude(modelDir, worldDir);
+          bool modelFromInclude = true;
 
           auto uriMapIt = _includeUriMap.find(modelDir);
 
