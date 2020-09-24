@@ -28,6 +28,7 @@
 #include "ignition/gazebo/components/Pose.hh"
 #include "ignition/gazebo/components/SourceFilePath.hh"
 #include "ignition/gazebo/components/World.hh"
+#include "ignition/gazebo/components/Link.hh"
 
 #include "SdfGenerator.hh"
 
@@ -290,6 +291,10 @@ namespace sdf_generator
 
     // auto worldDir = common::parentPath(worldSdf->Data().Element()->FilePath());
 
+    const std::string breadcrumbStr = "breadcrumb",
+                      staticStr = "static",
+                      teamBaseStr = "X3nTB";
+
     _ecm.Each<components::Model>(
         [&](const Entity &_modelEntity, const components::Model *) {
           const std::string modelName =
@@ -298,23 +303,37 @@ namespace sdf_generator
           auto filePath =
               _ecm.Component<components::SourceFilePath>(_modelEntity);
           std::string modelDir="";
+          bool modelFromInclude = true;
+          std::size_t foundStaticBreadcrumb, foundTeamBase;
           if (nullptr != filePath)
           {
             modelDir = common::parentPath(filePath->Data());
           }
           else
           {
-            // TODO (addisu) Figure out a way to get the path of the SDF that
-            // was used to create this model entity. The fact that it's
-            // SourceFilePath is empty means it was probably spawned from an SDF
-            // string, so might have to hard code things here for Breadcrumbs
-            // and other dynamically spawned objects.
-            ignerr << "filePath for model " << modelName << " not found\n";
-            return true;
+            foundStaticBreadcrumb = modelName.find(staticStr);
+            foundTeamBase = modelName.find(teamBaseStr);
+            if (modelName.find(breadcrumbStr) != std::string::npos && foundStaticBreadcrumb == std::string::npos)
+            {
+              modelDir = "/home/developer/.ignition/fuel/fuel.ignitionrobotics.org/OpenRobotics/models/Breadcrumb Node/4";
+            }
+            else if (foundTeamBase != std::string::npos || foundStaticBreadcrumb != std::string::npos)
+            {
+              modelFromInclude = false;
+            }
+            else
+            {
+              // TODO (addisu) Figure out a way to get the path of the SDF that
+              // was used to create this model entity. The fact that it's
+              // SourceFilePath is empty means it was probably spawned from an SDF
+              // string, so might have to hard code things here for Breadcrumbs
+              // and other dynamically spawned objects.
+              ignerr << "filePath for model " << modelName << " not found\n";
+              return true;
+            }
           }
 
           // bool modelFromInclude = isModelFromInclude(modelDir, worldDir);
-          bool modelFromInclude = true;
 
           auto uriMapIt = _includeUriMap.find(modelDir);
 
@@ -329,7 +348,34 @@ namespace sdf_generator
           if (modelConfig.expand_include_tags().data() || !modelFromInclude)
           {
             auto modelElem = _elem->AddElement("model");
-            updateModelElement(modelElem, _ecm, _modelEntity);
+            // updateModelElement(modelElem, _ecm, _modelEntity);
+
+            auto *nameComp = _ecm.Component<components::Name>(_modelEntity);
+            modelElem->GetAttribute("name")->Set(nameComp->Data());
+            auto *poseComp = _ecm.Component<components::Pose>(_modelEntity);
+            auto poseElem = modelElem->GetElement("pose");
+            poseElem->Set(poseComp->Data());
+
+            auto linkElem = modelElem->AddElement("link");
+
+            // if X3nTB substring found add pose and visual components
+            if (foundTeamBase != std::string::npos)
+            {
+              linkElem->GetAttribute("name")->Set("link");
+              linkElem->GetElement("pose")->Set(math::Pose3d(0,0,0.05,0,0,0));
+
+              auto visualElem = linkElem->AddElement("visual");
+              visualElem->GetAttribute("name")->Set("visual");
+              auto boxElem = visualElem->GetElement("geometry")->AddElement("box");
+              boxElem->GetElement("size")->Set(math::Vector3d(0.1,0.1,0.1));
+            }
+
+            // if static breadcrumb found set static_link
+            if (foundStaticBreadcrumb != std::string::npos)
+            {
+              linkElem->GetAttribute("name")->Set("static_link");
+            }
+
           }
           else if (uriMapIt != _includeUriMap.end())
           {
