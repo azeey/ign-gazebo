@@ -25,6 +25,12 @@ namespace ignition
 {
 namespace gazebo
 {
+
+void stoppedCb()
+{
+  igndbg << "Stopped" << std::endl;
+}
+
 class IGNITION_GAZEBO_VISIBLE EventTriggerSystem :
   public gazebo::System,
   public gazebo::ISystemConfigure,
@@ -40,6 +46,8 @@ class IGNITION_GAZEBO_VISIBLE EventTriggerSystem :
         {
           igndbg << "Configure" << std::endl;
           this->eventManager = &_eventManager;
+          this->pauseConn = this->eventManager->Connect<events::Stop>(
+              stoppedCb);
         }
 
   public: void Update(const UpdateInfo &/*_info*/,
@@ -50,6 +58,7 @@ class IGNITION_GAZEBO_VISIBLE EventTriggerSystem :
         }
 
   private: EventManager *eventManager;
+  private: ignition::common::ConnectionPtr pauseConn;
 };
 }
 }
